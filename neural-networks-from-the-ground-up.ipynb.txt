@@ -1,0 +1,1893 @@
+{
+ "cells": [
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "# Neural Networks From the Ground Up\n",
+    "## The Perceptron\n",
+    "- A perceptron is a *binary classifier* in the sense that it takes *n* inputs and produces one output that is either a 0 or a 1. \n",
+    "- For each input that comes into a perceptron, the input is multiplied by some weight. The results of all the products of inputs with their respective weights are summed. \n",
+    "- If the sum is greater than some *threshold* value, then the perceptron outputs a 1. Otherwise, the perceptron outputs a 0.\n",
+    "\n",
+    "- Eventually, we will see that we can write algorithms to \"learn\" the required weight values automatically. For now, we will select the weight values manually.\n",
+    "\n",
+    "- Strictly speaking a Perceptron is an *algorithm*. However, we can also create program *objects* that capture the relevant data structures and logic associated with a Perceptron. \n",
+    "\n",
+    "- The following Perceptron class can be used to compute *some*, but not all boolean functions:"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 51,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "import numpy as np\n",
+    "\n",
+    "\n",
+    "class Perceptron (object):\n",
+    "    '''implementation of an artificial perceptron'''\n",
+    "    def __init__ (self, weights, threshold):\n",
+    "        '''`weights` is a numpy array of numbers'''\n",
+    "        self.weights = weights\n",
+    "        self.threshold = threshold\n",
+    "        \n",
+    "    def sum_of_products (self, inputs):\n",
+    "        return np.sum (inputs * self.weights)\n",
+    "    \n",
+    "    def step_function (self, z):\n",
+    "        '''returns the result of applying a step function to the sum of products`'''\n",
+    "        if z <= threshold:\n",
+    "            return 0\n",
+    "        return 1\n",
+    "    \n",
+    "    def compute (self, inputs):\n",
+    "        '''computes a result based on the supplied inputs, weights, and threshold.'''\n",
+    "        # sum of products is traditionally called `z`\n",
+    "        z = self.sum_of_products (inputs)\n",
+    "        # perceptron output is traditionally called `y`\n",
+    "        y = self.step_function (z)\n",
+    "        return y"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "From the above, we can see that the definition of a Perceptron is *very simple*. The Perceptron takes its inputs and feeds them into a sum of products function to obtain an intermediate output `z`. The Perceptron then takes the intermediate output `z` and feeds it into a step funciton to obtain a final result `y`. The value of `y` is either 0 or 1 depending upon whether or not the value of `z` surpasses the defined threshold value. \n",
+    "\n",
+    "Symbolically, the output `y` of a Perceptron is computed as:\n",
+    "\n",
+    "y = step (sum_of_products (**x**, **w**)),\n",
+    "\n",
+    "where both **x** and **w** are vectors of length *n*.\n",
+    "\n",
+    "This definition of a Perceptron is motivated by the structure of a typical biological neuron, which takes in many inputs via its dendrites, and returns one output via its axon. The weights in an artificial neuron correspond to the connection strengths between biological neurons, the sum of products and step function in an artificial neuron correspond to the body of a biological neuron, and the output of the neuron corresponds to the signal sent down the axon of a biological neuron.\n",
+    "\n",
+    "The following is an example of a Perceptron that computes the AND function:"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 2,
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "AND (0, 0): 0\n",
+      "AND (1, 0): 0\n",
+      "AND (0, 1): 0\n",
+      "AND (1, 1): 1\n"
+     ]
+    }
+   ],
+   "source": [
+    "weights = np.array ([0.5, 0.5])\n",
+    "threshold = 0.7\n",
+    "\n",
+    "perceptron = Perceptron (weights, threshold)\n",
+    "\n",
+    "# pass different input values to the same perceptron \n",
+    "inputs = np.array ([0, 0])\n",
+    "print ('AND (0, 0):', perceptron.compute (inputs))\n",
+    "\n",
+    "inputs = np.array ([1, 0])\n",
+    "print ('AND (1, 0):', perceptron.compute (inputs))\n",
+    "\n",
+    "inputs = np.array ([0, 1])\n",
+    "print ('AND (0, 1):', perceptron.compute (inputs))\n",
+    "\n",
+    "inputs = np.array ([1, 1])\n",
+    "print ('AND (1, 1):', perceptron.compute (inputs))"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "- We could have chosen many other combinations of weights and threshold values to compute the AND functions. \n",
+    "- The point is that *only some choices work and others do not*.\n",
+    "\n",
+    "TODOS:\n",
+    "\n",
+    "1. motivate perceptron learning rule\n",
+    "2. graph what the line looks like of the perceptron\n",
+    "3. show the line for one perceptron. \n",
+    "4. how the line for composed perceptrons in the case of XOR\n",
+    "5. show how the line changes in the context of training perceptrons"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "We can better understand how the Perceptron works by plotting the four possible input/output pairs associated with the AND function in the x1-x2 plane, where the symbol '+' at the point (x1, x2) indicatest that the output of the AND function is 1 at that point, and the symbol '-' means the output of the AND function is 0 at that point:"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 3,
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "image/png": "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\n",
+      "text/plain": [
+       "<Figure size 432x288 with 1 Axes>"
+      ]
+     },
+     "metadata": {
+      "needs_background": "light"
+     },
+     "output_type": "display_data"
+    }
+   ],
+   "source": [
+    "import matplotlib.pyplot as plt\n",
+    "\n",
+    "\n",
+    "plt.plot([1.0], [1.0], 'r+', markersize=12)\n",
+    "plt.plot([0], [0], 'b_', markersize=12)\n",
+    "plt.plot([1], [0], 'b_', markersize=12)\n",
+    "plt.plot([0], [1], 'b_', markersize=12)\n",
+    "\n",
+    "plt.axis([-1, 2, -1, 2])\n",
+    "\n",
+    "plt.xlabel ('x1')\n",
+    "plt.ylabel ('x2')\n",
+    "plt.title ('AND function input/output pairs')\n",
+    "plt.show ()"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "We can visualize how the Perceptron distinguishes between these points by deriving the equaiton for a line from the logic of the Perceptron.\n",
+    "\n",
+    "The sum of products of our Perceptron has the form:\n",
+    "\n",
+    "x1w1 + x2w2.\n",
+    "\n",
+    "Since the threshold of 0.7 marks the cutoff point at which the output switches from 0 to 1, we can see that the equation for the boundary of the perceptron is:\n",
+    "\n",
+    "x1w1 + x2w2 = 0.7.\n",
+    "\n",
+    "Solving this equation for x2 in terms of x1, we have that:\n",
+    "\n",
+    "x2 = f(x1) = (0.7 -x1w1) / w2\n",
+    "\n",
+    "Plotting this line on our above graph, we get:"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 4,
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "image/png": "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\n",
+      "text/plain": [
+       "<Figure size 432x288 with 1 Axes>"
+      ]
+     },
+     "metadata": {
+      "needs_background": "light"
+     },
+     "output_type": "display_data"
+    }
+   ],
+   "source": [
+    "def perceptron_and_decision_boundary (x1):\n",
+    "    '''computes the descision boundary for the above Perceptron'''\n",
+    "    return (0.7 -x1*0.5) / 0.5\n",
+    "\n",
+    "plt.plot([1.0], [1.0], 'r+', markersize=12)\n",
+    "plt.plot([0], [0], 'b_', markersize=12)\n",
+    "plt.plot([1], [0], 'b_', markersize=12)\n",
+    "plt.plot([0], [1], 'b_', markersize=12)\n",
+    "\n",
+    "plt.axis([-1, 2, -1, 2])\n",
+    "\n",
+    "# plot a line segment that connects two arbitrary points on the decision boundary \n",
+    "x = [-1, 2]\n",
+    "plt.plot (x, [perceptron_and_decision_boundary (-1), perceptron_and_decision_boundary (2)])\n",
+    "\n",
+    "plt.xlabel ('x1')\n",
+    "plt.ylabel ('x2')\n",
+    "plt.title ('AND function input/output pairs')\n",
+    "plt.show ()"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "From the above, we can see that a single Perceptron can only ever compute a boolean function if it is possible to draw a straight line in the x1, x2 plane that divides the various input/output pairs associated with that function. We call such a function *linearly separable*. \n",
+    "\n",
+    "If we draw a similar diagram for the XOR function, we can see at once that *no single Perceptron could ever learn the XOR function*:"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 5,
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "image/png": "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\n",
+      "text/plain": [
+       "<Figure size 432x288 with 1 Axes>"
+      ]
+     },
+     "metadata": {
+      "needs_background": "light"
+     },
+     "output_type": "display_data"
+    }
+   ],
+   "source": [
+    "plt.plot([1.0], [1.0], 'b_', markersize=12)\n",
+    "plt.plot([0], [0], 'b_', markersize=12)\n",
+    "plt.plot([1], [0], 'r+', markersize=12)\n",
+    "plt.plot([0], [1], 'r+', markersize=12)\n",
+    "\n",
+    "plt.axis([-1, 2, -1, 2])\n",
+    "\n",
+    "plt.xlabel('x1')\n",
+    "plt.ylabel('x2')\n",
+    "plt.title ('XOR function input/output pairs')\n",
+    "plt.show ()"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "From the above diagram, we can see that regardless of how we choose to draw the line, one line by itself can never distinguish between the input/output pairs that have an output of 0, and the input/output pairs that have an output of 1 in the context of the XOR function. In other words, *one Perceptron is incapable of computing the XOR function*. We will see later how to work around this problem.\n",
+    "\n",
+    "Although the above implementation of the Perceptron works, it will not generalize to a context in which we want to learn all relevant parameters automatically. In particular, we will eventually come up with an algorithm that allows the required weights to be learned automatically. However, as our Perceptron stands currently, we need to set the threshold value separately from the weights.\n",
+    "\n",
+    "The trick that allows us to fold learning the threshold into the process that learns the weights is inclusion of an additional term called a *bias*. \n",
+    "\n",
+    "To see how we can use a bias to include the threshold in the weights, consider that the step function is defined as follows:\n",
+    "\n",
+    "1. step (z) = 0 if z <= threshold \n",
+    "2. step (z) = 1 if z > threshold \n",
+    "\n",
+    "The second condition is equivalent to the condition:\n",
+    "\n",
+    "3. step (z) = 1 if z - threshold > 0.\n",
+    "\n",
+    "In other words, we can simply set our \"pseudo-threshold\" to 0 and learn the real threshold by considering as just another term that is included in the sum of products (the minus sign can be corrected by learning the appropriate weight).\n",
+    "\n",
+    "The following is an example of a Perceptron that computes the AND function using a bias term:"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 6,
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "AND (0, 0): 0\n",
+      "AND (1, 0): 0\n",
+      "AND (0, 1): 0\n",
+      "AND (1, 1): 1\n"
+     ]
+    }
+   ],
+   "source": [
+    "import numpy as np\n",
+    "\n",
+    "\n",
+    "class Perceptron (object):\n",
+    "    '''implementation of an artificial perceptron using a bias term'''\n",
+    "    def __init__ (self, weights):\n",
+    "        '''`weights` is a numpy array of numbers'''\n",
+    "        self.weights = weights\n",
+    "        \n",
+    "    def sum_of_products (self, inputs):\n",
+    "        # the input corresponding to the bias weight is always 1\n",
+    "        new_inputs = np.insert (inputs, 0, 1.0, axis=0)\n",
+    "        return np.sum (new_inputs * self.weights)\n",
+    "    \n",
+    "    def step_function (self, z):\n",
+    "        '''returns the result of applying the step function to the sum of products`'''\n",
+    "        if z <= 0:\n",
+    "            return 0\n",
+    "        return 1\n",
+    "    \n",
+    "    def compute (self, inputs):\n",
+    "        '''computes a result based on the supplied inputs, weights, and threshold.'''\n",
+    "        # sum of products is traditionally called `z`\n",
+    "        z = self.sum_of_products (inputs)\n",
+    "        # perceptron output is traditionally called `y`\n",
+    "        y = self.step_function (z)\n",
+    "        return y\n",
+    "\n",
+    "# bias term is always first in the weight vector by convention    \n",
+    "weights = np.array ([-0.7, 0.5, 0.5])\n",
+    "\n",
+    "perceptron = Perceptron (weights)\n",
+    "\n",
+    "# pass different input values to the same perceptron \n",
+    "inputs = np.array ([0, 0])\n",
+    "print ('AND (0, 0):', perceptron.compute (inputs))\n",
+    "\n",
+    "inputs = np.array ([1, 0])\n",
+    "print ('AND (1, 0):', perceptron.compute (inputs))\n",
+    "\n",
+    "inputs = np.array ([0, 1])\n",
+    "print ('AND (0, 1):', perceptron.compute (inputs))\n",
+    "\n",
+    "inputs = np.array ([1, 1])\n",
+    "print ('AND (1, 1):', perceptron.compute (inputs))"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "Notice that in our above implementation of a Perceptron, we no longer need to explicitly pass in a threshold value as input. Instead, we adopt the convention that the threshold weight is first in the list of weights, and the input corresponding to that weight is always 1."
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "The following is an example of a Perceptron that computes the OR function:"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 7,
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "OR (0, 0): 0\n",
+      "OR (1, 0): 1\n",
+      "OR (0, 1): 1\n",
+      "OR (1, 1): 1\n"
+     ]
+    }
+   ],
+   "source": [
+    "weights = np.array ([-0.2, 0.5, 0.5])\n",
+    "\n",
+    "perceptron = Perceptron (weights)\n",
+    "\n",
+    "# pass different input values to the same perceptron \n",
+    "inputs = np.array ([-0, 0])\n",
+    "print ('OR (0, 0):', perceptron.compute (inputs))\n",
+    "\n",
+    "inputs = np.array ([1, 0])\n",
+    "print ('OR (1, 0):', perceptron.compute (inputs))\n",
+    "\n",
+    "inputs = np.array ([0, 1])\n",
+    "print ('OR (0, 1):', perceptron.compute (inputs))\n",
+    "\n",
+    "inputs = np.array ([1, 1])\n",
+    "print ('OR (1, 1):', perceptron.compute (inputs))"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "The following is an example of a Perceptron that computes the NAND function:"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 8,
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "NAND (0, 0): 1\n",
+      "NAND (1, 0): 1\n",
+      "NAND (0, 1): 1\n",
+      "NAND (1, 1): 0\n"
+     ]
+    }
+   ],
+   "source": [
+    "weights = np.array ([0.7, -0.5, -0.5])\n",
+    "\n",
+    "perceptron = Perceptron (weights)\n",
+    "\n",
+    "# pass different input values to the same perceptron \n",
+    "inputs = np.array ([0, 0])\n",
+    "print ('NAND (0, 0):', perceptron.compute (inputs))\n",
+    "\n",
+    "inputs = np.array ([1, 0])\n",
+    "print ('NAND (1, 0):', perceptron.compute (inputs))\n",
+    "\n",
+    "inputs = np.array ([0, 1])\n",
+    "print ('NAND (0, 1):', perceptron.compute (inputs))\n",
+    "\n",
+    "inputs = np.array ([1, 1])\n",
+    "print ('NAND (1, 1):', perceptron.compute (inputs))"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "It turns out that using our current Perceptron, we cannot compute the XOR function using just one Perceptron. This was famously pointed out by Minsky and Papert in their 1988 book \"Perceptrons\". The reason for this limitation the sum of products involved in our in our current definition of a Perceptron is a *linear* function. As a result, we can only use a Perceptron to compute functions whose input/output pairs can be seperated by a straight line, a plane, or a hyperplane (in more than 3 dimensions).\n",
+    "\n",
+    "However, although we cannot compute the XOR function using just *one* Perceptron, we *can* compute the XOR function if we *compose* more than one Perceptron in a chain. This notion of composing multiple neurons to solve a problem that is impossible for just one neuron to solve is the central theme in the construction of arbtrarily complex neural networks.\n",
+    "\n",
+    "In particular, it is known that the XOR function can be computed by composing the NAND, OR and AND functions together.\n",
+    "\n",
+    "The following is an example of how multiple Perceptrons can be used to compute the NAND function:"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 9,
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "XOR (0, 0): 0\n",
+      "XOR (1, 0): 1\n",
+      "XOR (0, 1): 1\n",
+      "XOR (1, 1): 0\n"
+     ]
+    }
+   ],
+   "source": [
+    "def XOR (x1, x2):\n",
+    "    '''computes the XOR function by composing three perceptrons'''\n",
+    "    # collect inputs into an array\n",
+    "    inputs = np.array ([x1, x2])\n",
+    "    \n",
+    "    # initialize NAND perceptron\n",
+    "    weights_nand = np.array ([0.7, -0.5, -0.5])\n",
+    "    perceptron_nand = Perceptron (weights_nand)\n",
+    "    \n",
+    "    # initialize OR perceptron\n",
+    "    weights_or = np.array ([-0.2, 0.5, 0.5])\n",
+    "    perceptron_or = Perceptron (weights_or)\n",
+    "    \n",
+    "    # initialize AND perceptron\n",
+    "    weights_and = np.array ([-0.7, 0.5, 0.5])\n",
+    "    perceptron_and = Perceptron (weights_and)\n",
+    "\n",
+    "    nand_result = perceptron_nand.compute (inputs)\n",
+    "    or_result = perceptron_or.compute (inputs)\n",
+    "    \n",
+    "    # AND together previous two results\n",
+    "    new_inputs = np.array ([nand_result, or_result])\n",
+    "    and_result = perceptron_and.compute (new_inputs)\n",
+    "    \n",
+    "    return and_result\n",
+    "\n",
+    "# pass different input values to the same perceptron \n",
+    "print ('XOR (0, 0):', XOR (0, 0))\n",
+    "print ('XOR (1, 0):', XOR (1, 0))\n",
+    "print ('XOR (0, 1):', XOR (0, 1))\n",
+    "print ('XOR (1, 1):', XOR (1, 1))"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "The above implementation of the XOR function uses a *multi-layer perceptron* consisting of three layers: one input layer followed by two perceptron layers. The first layer of the above perceptron network involves the inputs into the network, but does not include any perceptrons. The second layer of the network consists of one perceptron that computes the NAND function, and a second perceptron that computes the OR function. Each of the two inputs from the first layer of the network is passed to each perceptron in the first layer as inputs into that perceptron. The third and last layer of the above perceptron network consists of an AND perceptron. The AND perceptron receives one input from the output of the previous NAND gate, and a second input from the output of the previous OR gate.\n",
+    "\n",
+    "It is known that any computer can be built out of only NAND gates. Therefore, the fact that perceptrons can be wired together to build a NAND gate impliest that an entire computer can be built out of perceptrons. \n",
+    "\n",
+    "We can think of such a network of Perceptrons as a *directed graph* where each node corresponds to one Perceptron. A directed edge from Perceptron A to Perceptron B indicates that the output of Perceptron A is fed into Perceptron B as input.\n",
+    "\n",
+    "Now that we have included a bias term in our Perceptrons, the general equation for the decision boundary associated with a given Perceptron is:\n",
+    "\n",
+    "w0x0 + w1x1 + w2x2 = 0\n",
+    "\n",
+    "solving for x2 in terms of x1 and recalling that x0 is always set to 1 gives us:\n",
+    "\n",
+    "x2 = f(x1) = -x1 * (w1 / w2) - (w0 / w2).\n",
+    "\n",
+    "This corresponds to a straight line with slope w1 / w2 and with y-interecept -(w0 /w2). We can compute this function as follows:"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "We can visualize the decision boundaries learned by our above implementation of the XOR function as follows:"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 10,
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "image/png": "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\n",
+      "text/plain": [
+       "<Figure size 432x288 with 1 Axes>"
+      ]
+     },
+     "metadata": {
+      "needs_background": "light"
+     },
+     "output_type": "display_data"
+    }
+   ],
+   "source": [
+    "def get_points (w0, w1, w2):\n",
+    "    '''returns x and y coordinates of two points on the descision boundary of a Perceptron'''\n",
+    "    xs = [0, -w0 / w1]\n",
+    "    ys = [-w0 / w2, 0]\n",
+    "    return [xs, ys]\n",
+    "\n",
+    "plt.plot([1.0], [1.0], 'b_', markersize=12)\n",
+    "plt.plot([0], [0], 'b_', markersize=12)\n",
+    "plt.plot([1], [0], 'r+', markersize=12)\n",
+    "plt.plot([0], [1], 'r+', markersize=12)\n",
+    "\n",
+    "plt.axis([-1, 2, -1, 2])\n",
+    "\n",
+    "# NAND\n",
+    "nand_points = get_points (0.7, -0.5, -0.5)\n",
+    "x = nand_points[0]\n",
+    "y = nand_points[1]\n",
+    "plt.plot (x, y)\n",
+    "\n",
+    "# OR\n",
+    "or_points = get_points (-0.2, 0.5, 0.5)\n",
+    "x = or_points[0]\n",
+    "y = or_points[1]\n",
+    "plt.plot (x, y)\n",
+    "\n",
+    "plt.xlabel ('x1')\n",
+    "plt.ylabel ('x2')\n",
+    "plt.title ('XOR function input/output pairs')\n",
+    "plt.show ()"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "From the above, we can see that although one Perceptron cannot compute the XOR function, multiple Perceptrons can learn the XOR function, since each Perceptron draws a different decision boundary, and these two decision boundaries can then be ANDed together.\n",
+    "\n",
+    "In general, if a given network has *n* perceptrons, then it can distinguish between 2^n different categories."
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## Training A Perceptron - based on *Neural Network Design*, by Demuth and De jesus\n",
+    "\n",
+    "Above, we saw that if we can somehow figure out the required weights, we can set them manually on Perceptrons to compute various boolean functions. However, this is a tedious process that will not scale to solving difficult problems.\n",
+    "\n",
+    "Instead, we are interested in a method that can *automatically discover* the weights required to compute a given function. \n",
+    "\n",
+    "In any Perceptron training situation, there are only three possible outcomes:\n",
+    "\n",
+    "1. The out of the perceptron is 0 when it should have been a 1.\n",
+    "2. The output of the perceptron is 1 when it should have been a 0.\n",
+    "3. The output of the perceptron matches the expected output. \n",
+    "\n",
+    "The question now becomes: in the context of training, how can we update the weights at each step to get closer the expected output? \n",
+    "\n",
+    "In the first case, the output of the Perceptron is too low. Therefore, a reasonable idea is to *add* the input vector to the weight vector in the hopes of obtaining a larger output. \n",
+    "\n",
+    "In the second case, the output of the Perceptron is too high. Therefore, a reasonable idea is to *subtract* the input vector from the weight vector in the hopes of obtaining a smaller output.\n",
+    "\n",
+    "In the third case, we do nothing to the weight vector, since if it ain't broke, don't fix it.\n",
+    "\n",
+    "If we call the expected output `t` and the actual output of the Perceptron `y`, then we can summarize the above update rules as follows:\n",
+    "\n",
+    "1. If `t` = 1 and `y` = 0, then the new weight vector equals whatever the old weight vector was, plus the input vector.\n",
+    "\n",
+    "2. If `t` = 0 and `y` = 1, then the new weight vector equals whatever the old vector weight was, minus the input vector.\n",
+    "\n",
+    "3. If `t` = `y`, then the new weight vector equals whatever the old weight vector was.\n",
+    "\n",
+    "If we define the quantity `e` = `t` - `y`, then we can re-write the above three rules as:\n",
+    "\n",
+    "1. `e` = 1, then the new weight vector equals whatever the old weight vector was, plus the input vector.\n",
+    "\n",
+    "2. If `e` = -1, then the new weight vector equals whatever the old weight vector was, minus the input vector.\n",
+    "\n",
+    "3. If `e` = 0, then the new weight vector equals whatever the old weight vector was.\n",
+    "\n",
+    "Since `e` can only take on one of the three values -1, 1, or 0, we can condense the above three rules into just one update rule:\n",
+    "\n",
+    "1. The new weight vecotr equals whatever the old weight vector was plus `e` multiplied by the input vector.\n",
+    "\n",
+    "The strategy to train one Perceptron is then as follows:\n",
+    "\n",
+    "1. initialize the weight vector to the zero vector.\n",
+    "2. Select one input/output pair.\n",
+    "3. Present the input values to the perceptron to compute the perceptron's output y.\n",
+    "4. If the output y is different from the expected output in the input/output pair, then adjust the weights according to the following rule:\n",
+    "\n",
+    "The new weight vecotr equals `e` multiplied by the old weight vector.\n",
+    "\n",
+    "5. Repeat steps 2, 3, and 4 until the perceptron predicts all examples correctly.\n",
+    "\n",
+    "We can include the above training algorithm in an improved version of our Perceptron class and use it to compute the AND function:"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 55,
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "AND (0, 0): 0\n",
+      "AND (0, 1): 0\n",
+      "AND (1, 0): 0\n",
+      "AND (1, 1): 1\n"
+     ]
+    }
+   ],
+   "source": [
+    "import numpy as np\n",
+    "\n",
+    "class PerceptronLearner (object):\n",
+    "    '''\n",
+    "       implementation of an artificial perceptron which includes a training method.\n",
+    "       \n",
+    "       based on https://www.thomascountz.com/2018/04/05/19-line-line-by-line-python-perceptron\n",
+    "    '''\n",
+    "    def __init__ (self, training_inputs, labels, iterations=100):\n",
+    "        self.training_inputs = training_inputs \n",
+    "        self.labels = labels\n",
+    "        self.iterations = iterations\n",
+    "        num_inputs = len (training_inputs[0])\n",
+    "        self.weights = np.zeros (num_inputs + 1)\n",
+    "           \n",
+    "    def compute (self, inputs):\n",
+    "        '''returns the output of the Perceptron'''\n",
+    "        summation = np.dot (inputs, self.weights[1:]) + self.weights[0]\n",
+    "        if summation > 0:\n",
+    "            return 1\n",
+    "        return 0\n",
+    "\n",
+    "    def train (self):\n",
+    "        '''trains the perceptron to compute a linearly separable boolean function.'''\n",
+    "        for _ in range (self.iterations):\n",
+    "            for inputs, label in zip (self.training_inputs, self.labels):\n",
+    "                prediction = self.compute (inputs)\n",
+    "                self.weights[1:] += (label - prediction) * inputs\n",
+    "                self.weights[0] += (label - prediction)\n",
+    "\n",
+    "# define training inputs\n",
+    "training_inputs = []\n",
+    "training_inputs.append (np.array([1, 1]))\n",
+    "training_inputs.append (np.array([1, 0]))\n",
+    "training_inputs.append (np.array([0, 1]))\n",
+    "training_inputs.append (np.array([0, 0]))\n",
+    "\n",
+    "# list of expected output for each training input\n",
+    "labels = np.array ([1, 0, 0, 0])\n",
+    "\n",
+    "# initialize the perceptron\n",
+    "perceptron = PerceptronLearner (training_inputs, labels)\n",
+    "\n",
+    "# train the perceptron\n",
+    "perceptron.train ()\n",
+    "\n",
+    "# use the trained Perceptron to compute the AND function \n",
+    "input_1 = np.array ([0, 0])\n",
+    "print ('AND (0, 0):', perceptron.compute (input_1))\n",
+    "\n",
+    "input_2 = np.array ([0, 1])\n",
+    "print ('AND (0, 1):', perceptron.compute (input_2))\n",
+    "\n",
+    "input_3 = np.array ([1, 0])\n",
+    "print ('AND (1, 0):', perceptron.compute (input_3))\n",
+    "\n",
+    "input_4 = np.array ([1, 1])\n",
+    "print ('AND (1, 1):', perceptron.compute (input_4))"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## From Perceptrons to Neurons\n",
+    "\n",
+    "The Perceptron model we saw above was originally set forth by McCulloch and Pitts in their 1943 paper, \"A Logical Calculus of the Ideas Immanent in Nervous Activity\" as a mathematical model of a single biological neuron. \n",
+    "\n",
+    "However, it turns out that **Perceptrons are hard to train**, in the sense of writing an algorithm that can *automatically* find the weights required to compute a given function. \n",
+    "\n",
+    "The difficulty of automatically training Perceptrons motivates us to look for a more *general* construct that easier to train than a Perceptron. \n",
+    "\n",
+    "We generalize the Perceptron by noticing that the computation performed by a peceptron involves composing two functions.\n",
+    "\n",
+    "1. One function *f* that computes the sum of products between the inputs and the weights.\n",
+    "2. A second function *g* that takes the output of *f* as input and returns 1 if the sum of products is above the threshold, and 0 otherwise. We call such a function that outputs either 0 or 1 a *step function*, because its graph looks like a step.\n",
+    "\n",
+    "The observation that two functions are involved in a Perceptron's computation leads us to realize that we can generalize the Perceptron idea by keeping the first function that computes the sum of products, but *swapping out the second function for some other function instead*. \n",
+    "\n",
+    "We call whatever function we choose as this second function an *activation function*. The activation function can be any function that we find makes it easier for us to learn the required weights in an automated fahsion. In other words, the search space for finding a suitable activation function is the set of *all* functions that map R -> R. This is a *massive* search space! \n",
+    "\n",
+    "When we use an activation function other than a step function, we call the resulting unit a *neuron* rather than a *perceptron*.\n",
+    "\n",
+    "The step function used in the definition of a Perceptron is difficult to train automatically because it is not *differentiable at its transition point*. We can see why this is so by looking at the graph of a step function:"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "import numpy as np\n",
+    "import matplotlib.pylab as plt\n",
+    "\n",
+    "\n",
+    "def step_function (x):\n",
+    "    '''given a numpy array, returns a numpy array that \n",
+    "       maps each element of the input array to the result of \n",
+    "       applying the step function to that array element.\n",
+    "    '''\n",
+    "    return np.array (x > 0, dtype=int)\n",
+    "\n",
+    "# create a NumPy array containing values from -5.0 to 5.0 in increments of 0.1\n",
+    "x = np.arange (-5.0, 5.0, 0.1)\n",
+    "\n",
+    "# obtain the corresponding output NumPy array\n",
+    "y = step_function (x)\n",
+    "\n",
+    "# plot input and output arrays\n",
+    "plt.plot (x, y)\n",
+    "\n",
+    "# specify the range of the y-axis\n",
+    "plt.ylim (-0.1, 1.1)\n",
+    "\n",
+    "# title\n",
+    "plt.title ('step function')\n",
+    "plt.show ()"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "From the above, we can see that the graph of the step function transitions sharply from an output of 0 to an output of 1 when the input changes from being less than or equal to 0 to being strictly greater than 0. As a result, we cannot compute a tangent line at that point, and the function is not differentiable when the input equals 0. A step function is often called a \"staircase function\" because of the way it looks.\n",
+    "\n",
+    "One popular choice of an activation function which *is* differentiable is the *sigmoid function*, which can be computed in Python as follows:"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "def sigmoid (x):\n",
+    "    '''given a numpy array, returns a numpy array that \n",
+    "       maps each element of the input array to the result of \n",
+    "       applying the sigmoid function to that array element.\n",
+    "    '''\n",
+    "    # leverages NumPy broadcasting \n",
+    "    return 1 / (1 + np.exp(-x))\n",
+    "\n",
+    "# create a NumPy array containing values from -5.0 to 5.0 in increments of 0.1\n",
+    "x = np.arange (-5.0, 5.0, 0.1)\n",
+    "\n",
+    "# obtain the corresponding output NumPy array\n",
+    "y = sigmoid (x)\n",
+    "\n",
+    "# plot input and output arrays\n",
+    "plt.plot (x, y)\n",
+    "\n",
+    "# specify the range of the y-axis\n",
+    "plt.ylim (-0.1, 1.1)\n",
+    "\n",
+    "# title\n",
+    "plt.title ('sigmoid function')\n",
+    "plt.show ()"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "We can better compare the step function with the sigmoid function if we plot them both on the same graph:"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# create a NumPy array containing values from -5.0 to 5.0 in increments of 0.1\n",
+    "x = np.arange (-5.0, 5.0, 0.1)\n",
+    "\n",
+    "# obtain the corresponding output NumPy array\n",
+    "y1 = step_function (x)\n",
+    "\n",
+    "# obtain the corresponding sigmoid output NumPy array\n",
+    "y2 = sigmoid (x)\n",
+    "\n",
+    "# draw step function with a solid line\n",
+    "plt.plot (x, y1, label=\"step function\")\n",
+    "\n",
+    "# draw sigmoid function with a dashed line\n",
+    "plt.plot (x, y2, linestyle = \"--\", label=\"sigmoid function\")\n",
+    "\n",
+    "# Label of the x axis\n",
+    "plt.xlabel (\"inputs\")\n",
+    "\n",
+    "# Label of the y axis\n",
+    "plt.ylabel (\"outputs\")\n",
+    "\n",
+    "# title\n",
+    "plt.title ('step and sigmoid functions')\n",
+    "\n",
+    "plt.legend ()\n",
+    "plt.show ()"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "From the above, we can see that the sigmoid function is a smooth generalization of the step function in the following ways:\n",
+    "\n",
+    "1. Whereas the the step function can only output either a 0 or a 1, the sigmoid functions can output all possible values in the entire interval from 0 to 1.\n",
+    "2. Both functions have the property that when the input is close to 0, the output is close to 0 or equal to 0, and when the input is close to 1, the output is close to or equal to 1.\n",
+    "3. Both functions are *nonlinear*.\n",
+    "\n",
+    "Another popular activation function is the rectified linear unit (ReLU) function, which looks as follows:"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "def relu (x):\n",
+    "    '''given a numpy array, returns a numpy array that \n",
+    "       maps each element of the input array to the result of \n",
+    "       applying the ReLU function to that array element.\n",
+    "    '''\n",
+    "    return np.maximum (0, x)\n",
+    "\n",
+    "# create a NumPy array containing values from -5.0 to 5.0 in increments of 0.1\n",
+    "x = np.arange (-5.0, 5.0, 0.1)\n",
+    "\n",
+    "# obtain the corresponding output NumPy array\n",
+    "y = relu (x)\n",
+    "\n",
+    "# plot input and output arrays\n",
+    "plt.plot (x, y)\n",
+    "\n",
+    "# specify the range of the y-axis\n",
+    "plt.ylim (-0.1, 1.1)\n",
+    "\n",
+    "# title\n",
+    "plt.title ('ReLU function')\n",
+    "plt.show ()"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## Measuring the Error \n",
+    "\n",
+    "So far, we have seen that a neural network is a composition of many neurons, each of which involves the following:\n",
+    "\n",
+    "1. Some number of inputs.\n",
+    "2. A different weight corresponding to each input.\n",
+    "3. A sum of products that multiplies each input by its corresponding weight and then sums all of the products to obtain one number.\n",
+    "4. An activation function that take the sum of products as input and returns one number as output.\n",
+    "\n",
+    "However, we still do not know how to automatically train such a network to compute a desired output. The key idea in automating this task is to measure the error of a neural network relative to the desired output, and to then adjust the weights of each neuron in the network based upon how far the output of the network is from the desired result. \n",
+    "\n",
+    "In other words, if we want to make progress towards learning the weights of the network in an automated way, we must formalize the distance of the networks output from the desired output. \n",
+    "\n",
+    "We measure the error of the network using a function called a *loss*, *cost* or *objective* function. There are *many* different kinds of loss functions that we can use to measure how well a given neural network is performing. \n",
+    "\n",
+    "One of the simplest loss functions is the *quadratic loss function*. This function subtracts the vector output of the network from the desired output and then squares the result. \n",
+    "\n",
+    "In Python, the quadratic loss function looks as follows:"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "from mpl_toolkits.mplot3d import axes3d\n",
+    "\n",
+    "\n",
+    "x_inputs = np.arange (-5,5, 0.1)\n",
+    "y_inputs = np.arange (-5,5, 0.1)\n",
+    "\n",
+    "x, y = np.meshgrid (x_inputs, y_inputs)\n",
+    "z = np.square (x - y)\n",
+    "\n",
+    "\n",
+    "fig = plt.figure (figsize=(6,6))\n",
+    "ax = fig.add_subplot (111, projection='3d')\n",
+    "\n",
+    "\n",
+    "# Plot a 3D surface\n",
+    "ax.plot_surface(x, y, z)\n",
+    "\n",
+    "plt.show()"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "At any given point in time, our error measurement will live somewhere on the above surface. Training a neural network works by iteratively adjusting the weights of the network such that over time, the measured error is as small as possible. \n",
+    "\n",
+    "Now that we understand the notion of measuring the error, we must learn how to find the inputs into the error function that correspond to the *smallest* output of the error function. For this, we will need differential calculus."
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## Finding the Minimum of a Function with the Derivative\n",
+    "\n",
+    "Above, we saw that to train a neural network, we need to minimize a function that takes at least two inputs and returns one output (i.e. it maps Rn -> R. However, before we can do this, we must learn how to minimize a function that takes just one input and returns one output (i.e. it maps R -> R).\n",
+    "\n",
+    "The primary mathematical tool that allows us to find the minimum of a function is the derivative. \n",
+    "\n",
+    "Conceptaully, the derivative is a higher-order function that takes one function as input and returns one function as output. \n",
+    "\n",
+    "The output of the derivative is a function that measures the rate of change at each input value of the input function.\n",
+    "\n",
+    "For example, consider the following function:\n",
+    "\n",
+    "- *f*: R -> R\n",
+    "- *f* (x) = x\n",
+    "\n",
+    "The function *f* takes a real number as input and returns the same real number as output. For this reason, the function *f* is called the *identity function*.\n",
+    "\n",
+    "This function looks like a line when we plot it:"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "import numpy as np\n",
+    "import matplotlib.pylab as plt\n",
+    "\n",
+    "\n",
+    "def identity_function (x):\n",
+    "    '''given a numpy array, returns a numpy array that \n",
+    "       maps each element of the input array to the result of \n",
+    "       applying the identity function to that array element.\n",
+    "    '''\n",
+    "    return x\n",
+    "\n",
+    "# create a NumPy array containing values from -5.0 to 5.0 in increments of 0.1\n",
+    "x = np.arange (-5.0, 5.0, 0.1)\n",
+    "\n",
+    "# obtain the corresponding output NumPy array\n",
+    "y = identity_function (x)\n",
+    "\n",
+    "# plot input and output arrays\n",
+    "plt.plot (x, y)\n",
+    "\n",
+    "# specify the range of the y-axis\n",
+    "plt.ylim (-5.0, 5.0)\n",
+    "\n",
+    "# title\n",
+    "plt.title ('identity function')\n",
+    "plt.show ()"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "The derivative is a generalization of the notion of slope. In general, the slope between two input/output pairs of the form (x1, y1) and (x2, y2) is computed using the formla:\n",
+    "\n",
+    "slope = (y1 - y2) / (x2 - x1).\n",
+    "\n",
+    "We can compute the slope for any two such pairs, regardless of how far appart the two inputs x1 and x2 are from each other. \n",
+    "\n",
+    "In contrast, the derivative is computed by assuming that the two inputs are *arbitrarily close* to each other and then measuring the slope between the two corresponding input/output pairs.\n",
+    "\n",
+    "In the case of the identity function, the slope between any two arbitrarily close points is always the same. Therefore, when we feed the identity function into the derivative as input, we obtain as output a constant function that maps each input to the same output. In particular, we obtain the follwoing function as the derivative of the function *f*:\n",
+    "\n",
+    "- *g*: R -> R\n",
+    "- *g* (x) = 1\n",
+    "\n",
+    "We can plot the functions *f* and *g* on the same graph to get a better sense of how they relate to each other:"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "def derivative_of_identity (x):\n",
+    "    '''given a numpy array, `x` applies the derivative of the identity function \n",
+    "       to each input and returns the result as a numpy array.'''\n",
+    "    length = x.size\n",
+    "    return np.ones (length)\n",
+    "\n",
+    "# create a NumPy array containing values from -5.0 to 5.0 in increments of 0.1\n",
+    "x = np.arange (-5.0, 5.0, 0.1)\n",
+    "\n",
+    "# obtain the identity function\n",
+    "y1 = identity_function (x)\n",
+    "\n",
+    "# obtain the derivative of the identity function as a NumPy array\n",
+    "y2 = derivative_of_identity (y1)\n",
+    "\n",
+    "# draw identity function with a solid line\n",
+    "plt.plot (x, y1, label=\"identity function\")\n",
+    "\n",
+    "# draw constant function with a dashed line\n",
+    "plt.plot (x, y2, linestyle = \"--\", label=\"derivative of constant function\")\n",
+    "\n",
+    "# Label of the x axis\n",
+    "plt.xlabel (\"inputs\")\n",
+    "\n",
+    "# Label of the y axis\n",
+    "plt.ylabel (\"outputs\")\n",
+    "\n",
+    "# title\n",
+    "plt.title ('step and sigmoid functions')\n",
+    "\n",
+    "plt.legend ()\n",
+    "plt.show ()"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "Now that we understand the basic concept of a derivative, let's consider how to compute the derivative for arbitrarily complex functions.\n",
+    "\n",
+    "A first naive approach is to simply add a very small amount to each input and then compute the slope based on the two inputs obtained in that way. Obtaining the derivative in this way is called *numerical differentiation*. \n",
+    "\n",
+    "This approach looks as follows:"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "def numerical_derivative (f, x):\n",
+    "    '''given a function `f` and a NumPy input vector `x`, \n",
+    "    returns the derivative of f at all points in x'''\n",
+    "    h = 1e-50\n",
+    "    return (f(x+h) - f(x)) / h\n",
+    "\n",
+    "# create a NumPy array containing values from -5.0 to 5.0 in increments of 0.1\n",
+    "x = np.arange (-5.0, 5.0, 0.1)\n",
+    "\n",
+    "# obtain the identity function\n",
+    "y1 = identity_function (x)\n",
+    "\n",
+    "# obtain the derivative of the identity function as a NumPy array\n",
+    "y2 = numerical_derivative (identity_function, x)\n",
+    "\n",
+    "# draw identity function with a solid line\n",
+    "plt.plot (x, y1, label=\"identity function\")\n",
+    "\n",
+    "# draw constant function with a dashed line\n",
+    "plt.plot (x, y2, linestyle = \"--\", label=\"derivative of constant function\")\n",
+    "\n",
+    "# Label of the x axis\n",
+    "plt.xlabel (\"inputs\")\n",
+    "\n",
+    "# Label of the y axis\n",
+    "plt.ylabel (\"outputs\")\n",
+    "\n",
+    "# title\n",
+    "plt.title ('identity function and its derivative')\n",
+    "\n",
+    "plt.legend ()\n",
+    "plt.show ()"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "So far, our approach is able to reproduce the same result we obtained above based on intuition. Let's see what happens if use our new tool to compute the derivative of the squaring function:"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "def squaring_function (x):\n",
+    "    return np.square (x)\n",
+    "\n",
+    "# create a NumPy array containing values from -5.0 to 5.0 in increments of 0.1\n",
+    "x = np.arange (-5.0, 5.0, 0.1)\n",
+    "\n",
+    "# obtain the identity function outputs\n",
+    "y1 = squaring_function (x)\n",
+    "\n",
+    "# obtain the derivative outputs of the identity function as a NumPy array\n",
+    "y2 = numerical_derivative (squaring_function, x)\n",
+    "\n",
+    "# draw identity function with a solid line\n",
+    "plt.plot (x, y1, label=\"squaring function\")\n",
+    "\n",
+    "# draw constant function with a dashed line\n",
+    "plt.plot (x, y2, linestyle = \"--\", label=\"derivative of squaring function\")\n",
+    "\n",
+    "# Label of the x axis\n",
+    "plt.xlabel (\"inputs\")\n",
+    "\n",
+    "# Label of the y axis\n",
+    "plt.ylabel (\"outputs\")\n",
+    "\n",
+    "# title\n",
+    "plt.title ('squaring function and its derivative')\n",
+    "\n",
+    "plt.legend ()\n",
+    "plt.show ()"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "Wait! we got the wrong answer!\n",
+    "\n",
+    "It is known that the derivative of the squaring function is the function:\n",
+    "\n",
+    "- *f*: R -> R\n",
+    "- *f* (x) = 2x\n",
+    "\n",
+    "However, the above computation gives the **false impression** that the derivative of the squaring function is the zero function that maps each input to zero! \n",
+    "\n",
+    "The reason for this discrepancy is *rounding error*.\n",
+    "\n",
+    "The following code snippet shows more clearly how such rounding error comes about:"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "np.float32 (1e-50)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "From the above, we can see that *the machine is incapable of dealing with points that are arbitrarily close to each other*. This limitation is due to the fact that real numbers can only be represented with *infinite* decimals expansions, yet we can only every store a *finite* number of decimals places in the machine at any given time due to memory constraints.\n",
+    "\n",
+    "The first improvement we can make is to make the points farther apart from each other in our numerical computation of the derivative:"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "def numerical_derivative (f, x):\n",
+    "    '''given a function `f` and a NumPy input vector `x`, \n",
+    "    returns the derivative of f at all points in x'''\n",
+    "    h = 1e-4\n",
+    "    return (f (x + h) - f (x)) / h\n",
+    "\n",
+    "\n",
+    "# create a NumPy array containing values from -5.0 to 5.0 in increments of 0.1\n",
+    "x = np.arange (-5.0, 5.0, 0.1)\n",
+    "\n",
+    "# obtain the identity function outputs\n",
+    "y1 = squaring_function (x)\n",
+    "\n",
+    "# obtain the derivative outputs of the identity function as a NumPy array\n",
+    "y2 = numerical_derivative (squaring_function, x)\n",
+    "\n",
+    "# draw identity function with a solid line\n",
+    "plt.plot (x, y1, label=\"squaring function\")\n",
+    "\n",
+    "# draw constant function with a dashed line\n",
+    "plt.plot (x, y2, linestyle = \"--\", label=\"derivative of squaring function\")\n",
+    "\n",
+    "# Label of the x axis\n",
+    "plt.xlabel (\"inputs\")\n",
+    "\n",
+    "# Label of the y axis\n",
+    "plt.ylabel (\"outputs\")\n",
+    "\n",
+    "# title\n",
+    "plt.title ('squaring function and its derivative')\n",
+    "\n",
+    "plt.legend ()\n",
+    "plt.show ()"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "Notice that by using the larger step size of 10^-4 in our compuation of the derivative instead of our previous step size of 10^-50, we obtained the correct derivative of f(x) = 2x instead of f(x) = 0.\n",
+    "\n",
+    "A second improvement we can make to get more accurate results is to use the *central difference* in our compuation of the derivative, which takes into account both what happens if we *add* a small amount to any input, or if we *subtract* a small amount from any input:"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "def numerical_derivative (f, x):\n",
+    "    '''given a function `f` and a NumPy input vector `x`, \n",
+    "    returns the derivative of f at all points in x'''\n",
+    "    h = 1e-4 \n",
+    "    return (f(x+h) - f(x-h)) / (2*h)\n",
+    "\n",
+    "# create a NumPy array containing values from -5.0 to 5.0 in increments of 0.1\n",
+    "x = np.arange (-5.0, 5.0, 0.1)\n",
+    "\n",
+    "# obtain the identity function outputs\n",
+    "y1 = squaring_function (x)\n",
+    "\n",
+    "# obtain the derivative outputs of the identity function as a NumPy array\n",
+    "y2 = numerical_derivative (squaring_function, x)\n",
+    "\n",
+    "# draw identity function with a solid line\n",
+    "plt.plot (x, y1, label=\"squaring function\")\n",
+    "\n",
+    "# draw constant function with a dashed line\n",
+    "plt.plot (x, y2, linestyle = \"--\", label=\"derivative of squaring function\")\n",
+    "\n",
+    "# Label of the x axis\n",
+    "plt.xlabel (\"inputs\")\n",
+    "\n",
+    "# Label of the y axis\n",
+    "plt.ylabel (\"outputs\")\n",
+    "\n",
+    "# title\n",
+    "plt.title ('squaring function and its derivative')\n",
+    "\n",
+    "plt.legend ()\n",
+    "plt.show ()"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "Now that we understand how to compute the derivaitve of a function that takes one input and returns one output, let's consider how we can use the derivaitve as a tool to help us find the input into a function that corresponds to the smallest output.\n",
+    "\n",
+    "As an example, consider the following function:"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "def f (x):\n",
+    "    '''some complicated function'''\n",
+    "    return 6*x**4 + 2*x**3 -4*x**2 - 12*x + 3\n",
+    "\n",
+    "# create a NumPy array containing values from -5.0 to 5.0 in increments of 0.1\n",
+    "x = np.arange (-5.0, 5.0, 0.1)\n",
+    "\n",
+    "# obtain the function outputs for f\n",
+    "y = f (x)\n",
+    "\n",
+    "# draw identity function with a solid line\n",
+    "plt.plot (x, y, label=\"some complicated function\")\n",
+    "\n",
+    "# Label of the x axis\n",
+    "plt.xlabel (\"inputs\")\n",
+    "\n",
+    "# Label of the y axis\n",
+    "plt.ylabel (\"outputs\")\n",
+    "\n",
+    "# title\n",
+    "plt.title ('some complicated function')\n",
+    "\n",
+    "plt.legend ()\n",
+    "plt.show ()"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "Now, suppose that we want to find the input into the above function *f* that yields the smallest output value. It turns out that we can use the derivative to solve this minimization problem.\n",
+    "\n",
+    "The following code snippet demonstrates the basic idea:\n",
+    "\n",
+    "The algorithm that uses the derivative to solve this minimization problem is called the *gradient descent algorithm*. To demonstrate how gradient descent works, we will pretend that we already know the derivative of our complicated function from the standard rules of calculus:"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "def derivative_of_complicated_function (x):\n",
+    "    return 12 * x - 12\n",
+    "\n",
+    "x = np.arange (-5.0, 5.0, 0.1)\n",
+    "\n",
+    "# Label of the x axis\n",
+    "plt.xlabel (\"inputs\")\n",
+    "\n",
+    "# Label of the y axis\n",
+    "plt.ylabel (\"outputs\")\n",
+    "\n",
+    "# title\n",
+    "plt.title ('some complicated function')\n",
+    "plt.plot(x,f(x))\n",
+    "\n",
+    "\n",
+    "# define starting input and step size for each iteration\n",
+    "current_input = -4.0\n",
+    "step_size = 0.03\n",
+    "\n",
+    "for i in range (15):\n",
+    "    plt.plot(current_input, f(current_input), marker='o', color='r')\n",
+    "    current_input = current_input - step_size * derivative_of_complicated_function (current_input)\n",
+    "\n",
+    "print (f'the minimum of the function is approximately: {current_input}')"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "From the above, we can see that after only 15 iterations, the above gradient descent algorithm was able to zero-in on the input value which yields the smallest output value for our function. When an algorithm gives us the result we want in a relatively small number of iterations, we say that it *converges rapidly*. If we want a more accurate result, we can increase the number of iterations:"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "x = np.arange (-5.0, 5.0, 0.1)\n",
+    "\n",
+    "# Label of the x axis\n",
+    "plt.xlabel (\"inputs\")\n",
+    "\n",
+    "# Label of the y axis\n",
+    "plt.ylabel (\"outputs\")\n",
+    "\n",
+    "# title\n",
+    "plt.title ('some complicated function')\n",
+    "plt.plot (x,f(x))\n",
+    "\n",
+    "# define starting input and step size for each iteration\n",
+    "current_input = -4.0\n",
+    "step_size = 0.03\n",
+    "\n",
+    "for i in range (100):\n",
+    "    plt.plot(current_input, f(current_input), marker='o', color='r')\n",
+    "    current_input = current_input - step_size * derivative_of_complicated_function (current_input)\n",
+    "\n",
+    "print (f'the minimum of the function is approximately: {current_input}')"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "Analytically, we know that the minumum of a function can be found by finding which input causes its derivative to return 0. Since the derivative of f is the function g (x) = 12 * x - 12, we know that plugging in 1 to the function g will return a result of 0. Therefore, we can see that our above gradient descent algorithm agrees very closely with the result we would have obtained analytically."
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "Now that we know how to solve the minimization for functions that take one input and return one input, we can consider how to solve the minimzation problem for functions that take two inputs and return one input. This generalized version of the gradient descent algorithm depends upon the notion of a *partial derivative*, so we'll take a quick detour into the realm of partial derivatives and then return to implement our generalized gradient descent algorithm."
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## Partial Derivatives and Generalized Gradient Descent\n",
+    "\n",
+    "In the case of a function that takes more than one input, we can add a small amount to any of the inputs, and measure the resulting change in the function's output. \n",
+    "\n",
+    "The partial derivative allows us to vary just one input at a time and measure the resulting change in the function's output. In the case of computing the partial derivative, it is easier to use *symbolic computing* than numerical computing to compute the various partial derivatives of a function.\n",
+    "\n",
+    "We can define a function symbolically and then apply it to an input as follows:"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "from sympy import *\n",
+    " \n",
+    "# create a \"symbol\" called x\n",
+    "x = Symbol ('x')\n",
+    " \n",
+    "# define a symbolic function\n",
+    "f = x ** 2\n",
+    "\n",
+    "print ('the function is:', f)\n",
+    "\n",
+    "# obtain a usuable function from the above symbolic function\n",
+    "f1 = lambdify (x, f)\n",
+    "\n",
+    "# pass an input to the usuable function\n",
+    "print ('f (4) is:', f1 (2))"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "Now that we know how to use symbolically defined functions, we can find the symbolic derivative of a function and then apply that derivative to an input:"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# define x as a symbol that will be used\n",
+    "x = Symbol ('x')\n",
+    "\n",
+    "# define a symbolic function using the above symbol\n",
+    "f = x ** 5\n",
+    "\n",
+    "print ('original function is:', f)\n",
+    "\n",
+    "derivative_f = f.diff (x)\n",
+    "\n",
+    "print ('derivative of the function is:', derivative_f)\n",
+    "\n",
+    "# obtain a usuable function from the above symbolic function\n",
+    "f1 = lambdify (x, derivative_f)\n",
+    "\n",
+    "print ('derivative applied to the input 2 is:', f1 (2))"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "Let's now apply these tools to a function that takes two inputs and compute the parital derivatives of that function:"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "x , y = symbols ('x y')\n",
+    "f = x ** 2 + y ** 2\n",
+    "\n",
+    "print ('original function is:', f)\n",
+    "\n",
+    "# fnd the partial derivative of f with respect to its first input\n",
+    "partial_derivative_wrt_x = f.diff (x)\n",
+    "\n",
+    "print ('partial derivative of f with respect to x is:', partial_derivative_wrt_x)\n",
+    "\n",
+    "# fnd the partial derivative of f with respect to its second input\n",
+    "partial_derivative_wrt_y = f.diff (y)\n",
+    "\n",
+    "print ('partial derivative of f with respect to y is:', partial_derivative_wrt_y)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "Although we can use sympy to compute partial derivatives, this process is even easier with the *autograd* library, since it does not require us to define symbols, and does not work with algebraic experssions, which can potentially consume large amounts of memory. \n",
+    "\n",
+    "As a start, we first show how to copmute the derivative of a function that takes one input and returns one output using autograd:"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# thinly wrapped numpy library\n",
+    "import autograd.numpy as np\n",
+    "# main workhorse of autograd\n",
+    "from autograd import grad\n",
+    "\n",
+    "# define a function like normal with Python and Numpy\n",
+    "def square (x):\n",
+    "    return np.square (x)\n",
+    "\n",
+    "# create a function to compute the gradient\n",
+    "square_derivative = grad (square)\n",
+    "\n",
+    "# evaluate the derivative at a particular input\n",
+    "print ('when the input to the derivative of the square function is 4.0, the output is:', square_derivative (4.0) )"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "If we are dealing with a function that takes more than one input and returns one output, then we can use autograd to compute the partial derivatives of that function. Autograd takes the persepctive that a function of multiple inputs can be seen as a function that takes just one vector input.\n",
+    "\n",
+    "For example:"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "def f (x, y):\n",
+    "    return np.square (x) + np.square (y)\n",
+    "\n",
+    "# compute the parital derivative of f w.r.t the first input\n",
+    "first_partial = grad(f, 0)\n",
+    "\n",
+    "# compute the parital derivative of f w.r.t the second input\n",
+    "second_partial = grad (f, 1)\n",
+    "\n",
+    "print ('first partial applied to (2.0, 3.0) is:', first_partial (2.0, 3.0))\n",
+    "print ('second partial applied to (2.0, 3.0) is:', second_partial (2.0, 3.0))"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "We could have acheived a similar result ourselves using numerical differentiation as follows:"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "def first_partial_custom (f, x, y):\n",
+    "    '''given a function `f` and two inputs, \n",
+    "       computes the partial derivative with respect to the first input.'''\n",
+    "    h = 1e-4\n",
+    "    return (f(x + h, y) - f(x, y)) / h\n",
+    "\n",
+    "def second_partial_custom (f, x, y):\n",
+    "    '''given a function `f` and two inputs, \n",
+    "       computes the partial derivative with respect to the second input.'''\n",
+    "    h = 1e-4\n",
+    "    return (f (x, y + h) - f (x, y)) / h\n",
+    "\n",
+    "print ('first partial applied to (2.0, 3.0) is:', np.round (first_partial_custom (f, 2.0, 3.0), 2))\n",
+    "print ('second partial applied to (2.0, 3.0) is:', np.round (second_partial_custom (f, 2.0, 3.0), 2))"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "Now that we understand how to compute partial derivatives in Python, we can generlize our previous gradient descent algorithm to any function that takes n inputs and returns one output. The algorithm for generalized gradient descent is very similar to our previous gradient descent algorithm, except that it uses partial derivatives instead of one regular derivative. \n",
+    "\n",
+    "For example, in the case of our function f above, it is intuitively clear that the input of this function which yields the smallest output is the ordered pair (0,0), since any number squared is always positive. \n",
+    "\n",
+    "We can verify this intuition using the generalized gradient descent algorithm:"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "def f (x, y):\n",
+    "    return np.square (x) + np.square (y)\n",
+    "\n",
+    "# define starting input and step size for each iteration\n",
+    "current_x = -4.0\n",
+    "current_y = 5.0\n",
+    "step_size = 0.03\n",
+    "\n",
+    "# compute the parital derivative of f w.r.t the first input\n",
+    "first_partial = grad(f, 0)\n",
+    "\n",
+    "# compute the parital derivative of f w.r.t the second input\n",
+    "second_partial = grad (f, 1)\n",
+    "\n",
+    "# iterate as many times as required to reach convergenece\n",
+    "for i in range (150):\n",
+    "    current_x = current_x - step_size * first_partial (current_x, current_y)\n",
+    "    current_y = current_y - step_size * second_partial (current_x, current_y)\n",
+    "\n",
+    "print (f'the minimum of the function is approximately: ({abs(np.round(current_x, 2))}, {np.round(current_y, 2)})')"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "To visualize how gradient descent works in the case of a function that takes two inputs and returns one output would usually require a 3-dimensional plot. However, we can accomplish the same goal in two dimensions using a contour plot:"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "def f (x, y):\n",
+    "    return np.square (x) + np.square (y)\n",
+    "\n",
+    "N = 100\n",
+    "x,y = np.meshgrid (np.linspace (-5, 5, N), np.linspace (-5,5,N))\n",
+    "z = f (x,y)\n",
+    "plt.contourf(x,y,z,10, cmap=\"Greys\")\n",
+    "plt.contour(x,y,z,10, colors='k', linewidths=1)\n",
+    "plt.title ('some complicated function')\n",
+    "\n",
+    "# define starting input and step size for each iteration\n",
+    "current_x = -4.0\n",
+    "current_y = 5.0\n",
+    "step_size = 0.03\n",
+    "\n",
+    "# compute the parital derivative of f w.r.t the first input\n",
+    "first_partial = grad (f, 0)\n",
+    "\n",
+    "# compute the parital derivative of f w.r.t the second input\n",
+    "second_partial = grad (f, 1)\n",
+    "\n",
+    "# iterate as many times as required to reach convergenece\n",
+    "for i in range (150):\n",
+    "    plt.plot([current_x, current_x],[current_y, current_y], marker='o', linestyle='dotted', color='k')    \n",
+    "    current_x = current_x - step_size * first_partial (current_x, current_y)\n",
+    "    current_y = current_y - step_size * second_partial (current_x, current_y)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "From the above countour plot, we can see that our function f has the shape of a bowl, and the generalized gradient descent algorithm is able to climb down the sides of the bowl and to figure out that the bottom of the bowl lives at the point (0, 0, 0) in R3."
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "We now have all the conceptual tools we need to start building a neural network than can automatically learn the weights required to compute a desired function.\n",
+    "\n",
+    "## Training a Neural Network\n",
+    "\n",
+    "Above, we saw that the XOR function can be computed by composing perceptrons for the OR, AND and NAND functions and *manually* selecting appropriate weights for each perceptron. In this section, we will see that these weights can be learned *automatically*.\n",
+    "\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "Above, we saw that we can train each perceptron independently and then compose the perceptrons after training. However, in general, *we don't know beforehand how to compose the nodes of our network to compute a given function*. \n",
+    "\n",
+    "As a result, we *generally need to train all of the nodes in our network together*. The primary tool for training all of the nodes in a neural network together is the *backpropagation algorithm*."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 57,
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "For input [1, 0] output is 1\n",
+      "For input [0, 0] output is 0\n",
+      "For input [0, 1] output is 1\n",
+      "For input [1, 1] output is 0\n"
+     ]
+    },
+    {
+     "data": {
+      "image/png": "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\n",
+      "text/plain": [
+       "<Figure size 432x288 with 1 Axes>"
+      ]
+     },
+     "metadata": {
+      "needs_background": "light"
+     },
+     "output_type": "display_data"
+    }
+   ],
+   "source": [
+    "# based on https://github.com/shayanalibhatti/Coding-neural_network-for-XOR-logic-from-scratch/blob/master/neural_network_xor_logic_from_scratch.ipynb\n",
+    "\n",
+    "# TODO: use a class\n",
+    "# TODO: use autograd\n",
+    "\n",
+    "# These are XOR inputs\n",
+    "x = np.array([[0,0,1,1],[0,1,0,1]])\n",
+    "\n",
+    "# These are XOR outputs\n",
+    "y = np.array([[0,1,1,0]])\n",
+    "\n",
+    "# Number of inputs\n",
+    "n_x = 2\n",
+    "\n",
+    "# Number of neurons in output layer\n",
+    "n_y = 1\n",
+    "\n",
+    "# Number of neurons in hidden layer\n",
+    "n_h = 2\n",
+    "\n",
+    "# Total training examples\n",
+    "m = x.shape[1]\n",
+    "\n",
+    "# Learning rate\n",
+    "lr = 0.1\n",
+    "\n",
+    "# Define random seed for consistent results\n",
+    "np.random.seed (2)\n",
+    "\n",
+    "# Define weight matrices for neural network\n",
+    "w1 = np.random.rand (n_h,n_x)   # Weight matrix for hidden layer\n",
+    "w2 = np.random.rand (n_y,n_h)   # Weight matrix for output layer\n",
+    "\n",
+    "# I didnt use bias units\n",
+    "# We will use this list to accumulate losses\n",
+    "losses = []\n",
+    "\n",
+    "# I used sigmoid activation function for hidden layer and output\n",
+    "def sigmoid (z):\n",
+    "    z = 1 / (1 + np.exp (-z))\n",
+    "    return z\n",
+    "\n",
+    "# Forward propagation\n",
+    "def forward_prop (w1,w2,x):\n",
+    "    z1 = np.dot (w1,x)\n",
+    "    a1 = sigmoid (z1)   \n",
+    "    \n",
+    "    z2 = np.dot (w2,a1)\n",
+    "    a2 = sigmoid (z2)\n",
+    "    return z1,a1,z2,a2\n",
+    "\n",
+    "# Backward propagation\n",
+    "def back_prop (m,w1,w2,z1,a1,z2,a2,y):\n",
+    "    \n",
+    "    dz2 = a2 - y\n",
+    "    dw2 = np.dot (dz2,a1.T) / m\n",
+    "    dz1 = np.dot (w2.T, dz2) * a1 * (1 - a1)\n",
+    "    dw1 = np.dot (dz1, x.T) / m\n",
+    "    dw1 = np.reshape (dw1, w1.shape)\n",
+    "    \n",
+    "    dw2 = np.reshape (dw2, w2.shape)    \n",
+    "    return dz2,dw2,dz1,dw1\n",
+    "\n",
+    "iterations = 10000\n",
+    "for i in range (iterations):\n",
+    "    z1, a1, z2, a2 = forward_prop (w1, w2, x)\n",
+    "    loss = -(1/m)*np.sum(y*np.log(a2)+(1-y)*np.log(1-a2))\n",
+    "    losses.append (loss)\n",
+    "    da2, dw2, dz1, dw1 = back_prop (m, w1, w2, z1, a1, z2, a2, y)\n",
+    "    w2 = w2-lr * dw2\n",
+    "    w1 = w1-lr *dw1\n",
+    "\n",
+    "# We plot losses to see how our network is doing\n",
+    "plt.plot (losses)\n",
+    "plt.xlabel (\"EPOCHS\")\n",
+    "plt.ylabel (\"Loss value\")\n",
+    "\n",
+    "def predict (w1,w2,input):\n",
+    "    z1, a1, z2, a2 = forward_prop(w1, w2, test)\n",
+    "    a2 = np.squeeze (a2)\n",
+    "    if a2 >= 0.5:\n",
+    "        print (\"For input\", [i[0] for i in input], \"output is 1\")# ['{:.2f}'.format(i) for i in x])\n",
+    "    else:\n",
+    "        print (\"For input\", [i[0] for i in input], \"output is 0\")\n",
+    "        \n",
+    "test = np.array ([[1],[0]])\n",
+    "predict (w1,w2,test)\n",
+    "test = np.array ([[0],[0]])\n",
+    "predict (w1,w2,test)\n",
+    "test = np.array ([[0],[1]])\n",
+    "predict (w1,w2,test)\n",
+    "test = np.array ([[1],[1]])\n",
+    "predict (w1,w2,test)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": []
+  }
+ ],
+ "metadata": {
+  "kernelspec": {
+   "display_name": "Python 3",
+   "language": "python",
+   "name": "python3"
+  },
+  "language_info": {
+   "codemirror_mode": {
+    "name": "ipython",
+    "version": 3
+   },
+   "file_extension": ".py",
+   "mimetype": "text/x-python",
+   "name": "python",
+   "nbconvert_exporter": "python",
+   "pygments_lexer": "ipython3",
+   "version": "3.9.1"
+  }
+ },
+ "nbformat": 4,
+ "nbformat_minor": 2
+}
